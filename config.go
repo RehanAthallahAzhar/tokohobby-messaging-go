@@ -19,3 +19,13 @@ func DefaultConfig() *RabbitMQConfig {
 		ReconnectDelay: 5 * time.Second,
 	}
 }
+
+/*
+
+URL: Connection string ke RabbitMQ
+MaxRetries: Berapa kali retry saat publish gagal
+RetryDelay: Jeda antar retry
+PrefetchCount: Berapa message consumer ambil sekaligus
+ReconnectDelay: Jeda sebelum reconnect jika connection putus
+
+*/

@@ -2,7 +2,7 @@ package messaging
 
 import "log"
 
-// SetupUserExchange setup exchange for user events
+// setup exchange for user events
 func SetupUserExchange(rmq *RabbitMQ) error {
 	ch, err := rmq.GetChannel()
 	if err != nil {
@@ -25,7 +25,7 @@ func SetupUserExchange(rmq *RabbitMQ) error {
 	return nil
 }
 
-// SetupWelcomeEmailQueue setup queue for welcome email
+// setup queue for welcome email
 func SetupWelcomeEmailQueue(rmq *RabbitMQ) error {
 	ch, err := rmq.GetChannel()
 	if err != nil {
@@ -45,9 +45,9 @@ func SetupWelcomeEmailQueue(rmq *RabbitMQ) error {
 	}
 	// Bind queue to exchange
 	err = ch.QueueBind(
-		"user.welcome.email", // queue name
-		"user.registered",    // routing key
-		"user.events",        // exchange
+		"user.welcome.email", // queue name -> [service-name].[purpose].[media]
+		"user.registered",    // routing key -> [service-name].[action, like create, update, delete]
+		"user.events",        // exchange -> [service-name].[event-type]
 		false,
 		nil,
 	)
@@ -55,5 +55,109 @@ func SetupWelcomeEmailQueue(rmq *RabbitMQ) error {
 		return err
 	}
 	log.Println("Queue 'user.welcome.email' created and bound")
+	return nil
+}
+
+// SetupOrderExchange setup exchange untuk order events
+func SetupOrderExchange(rmq *RabbitMQ) error {
+	ch, err := rmq.GetChannel()
+	if err != nil {
+		return err
+	}
+
+	// Declare Topic Exchange
+	err = ch.ExchangeDeclare(
+		"order.events", // name
+		"topic",        // type - TOPIC untuk routing patterns
+		true,           // durable
+		false,          // auto-deleted
+		false,          // internal
+		false,          // no-wait
+		nil,            // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Println("✅ Exchange 'order.events' created (topic)")
+	return nil
+}
+
+// queue setup for order email notifications
+func SetupOrderEmailQueue(rmq *RabbitMQ) error {
+	ch, err := rmq.GetChannel()
+	if err != nil {
+		return err
+	}
+
+	// Declare queue
+	_, err = ch.QueueDeclare(
+		"order.email.notifications", // name
+		true,                        // durable
+		false,                       // auto-delete
+		false,                       // exclusive
+		false,                       // no-wait
+		nil,                         // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	// Bind dengan wildcard - consume ALL order status changes
+	err = ch.QueueBind(
+		"order.email.notifications", // queue name
+		"order.status.*",            // routing key pattern - * matches single word
+		"order.events",              // exchange
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Println("✅ Queue 'order.email.notifications' created and bound to order.status.*")
+	return nil
+}
+
+// queue setup for order history update
+func SetupOrderHistoryQueue(rmq *RabbitMQ) error {
+	ch, err := rmq.GetChannel()
+	if err != nil {
+		return err
+	}
+
+	// Declare queue
+	_, err = ch.QueueDeclare(
+		"order.user.history", // name
+		true,                 // durable
+		false,                // auto-delete
+		false,                // exclusive
+		false,                // no-wait
+		nil,                  // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	// Bind multiple routing keys - only interested in paid & delivered
+	routingKeys := []string{
+		"order.status.paid",
+		"order.status.delivered",
+	}
+
+	for _, key := range routingKeys {
+		err = ch.QueueBind(
+			"order.user.history", // queue name
+			key,                  // routing key
+			"order.events",       // exchange
+			false,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	log.Println("✅ Queue 'order.user.history' created with selective bindings")
 	return nil
 }

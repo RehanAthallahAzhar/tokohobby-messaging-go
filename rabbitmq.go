@@ -13,7 +13,7 @@ type RabbitMQ struct {
 	config    *RabbitMQConfig
 	conn      *amqp.Connection
 	channel   *amqp.Channel
-	mu        sync.RWMutex
+	mu        sync.RWMutex // for thread-safe operations from multiple goroutines (race condition)
 	closed    bool
 	closeChan chan struct{}
 	reconnect chan struct{}
@@ -58,6 +58,17 @@ func (r *RabbitMQ) connect() error {
 	}
 
 	// Set QoS (Quality of Service) for consumer
+	/*
+		Qos is a way to control the flow of messages between the client and the server.
+		It is used to prevent the server from sending messages to the client faster than the client can process them.
+
+		Prefetch count -> restrict message count
+			example: if we set prefetch count is 10, it will send max 10 messages to consumer
+					if consumer is processing 1 message, it will send 1 next message
+		Prefetch size -> restrict message byte size,
+			example: dont send more than 1024 bytes if prefetch size is 1024
+		Global -> false means only for this consumer, true means for all consumer
+	*/
 	err = r.channel.Qos(
 		r.config.PrefetchCount, // prefetch count
 		0,                      // prefetch size
