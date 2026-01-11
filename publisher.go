@@ -25,7 +25,7 @@ type PublishOptions struct {
 	Immediate  bool
 }
 
-// Publish send message to RabbitMQ with retry
+// Send message to RabbitMQ with retry
 func (p *Publisher) Publish(ctx context.Context, opts PublishOptions, body interface{}) error {
 	// Marshal body to JSON
 	data, err := json.Marshal(body)
@@ -80,7 +80,7 @@ func (p *Publisher) Publish(ctx context.Context, opts PublishOptions, body inter
 		p.rmq.config.MaxRetries, lastErr)
 }
 
-// DeclareExchange declare exchange if not exists
+// Declare exchange if not exists
 func (p *Publisher) DeclareExchange(name, kind string, durable bool) error {
 	ch, err := p.rmq.GetChannel()
 	if err != nil {

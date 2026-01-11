@@ -1,6 +1,8 @@
 package messaging
 
-import "log"
+import (
+	"log"
+)
 
 // setup exchange for user events
 func SetupUserExchange(rmq *RabbitMQ) error {
@@ -79,7 +81,7 @@ func SetupOrderExchange(rmq *RabbitMQ) error {
 		return err
 	}
 
-	log.Println("✅ Exchange 'order.events' created (topic)")
+	log.Println("Exchange 'order.events' created (topic)")
 	return nil
 }
 
@@ -115,7 +117,7 @@ func SetupOrderEmailQueue(rmq *RabbitMQ) error {
 		return err
 	}
 
-	log.Println("✅ Queue 'order.email.notifications' created and bound to order.status.*")
+	log.Println("Queue 'order.email.notifications' created and bound to order.status.*")
 	return nil
 }
 
@@ -158,6 +160,128 @@ func SetupOrderHistoryQueue(rmq *RabbitMQ) error {
 		}
 	}
 
-	log.Println("✅ Queue 'order.user.history' created with selective bindings")
+	log.Println("Queue 'order.user.history' created with selective bindings")
+	return nil
+}
+
+func SetupProductExchange(rmq *RabbitMQ) error {
+	ch, err := rmq.GetChannel()
+	if err != nil {
+		return err
+	}
+
+	return ch.ExchangeDeclare(
+		"product.events", // name
+		"topic",          // type
+		true,             // durable
+		false,            // auto-deleted
+		false,            // internal
+		false,            // no-wait
+		nil,              // arguments
+	)
+}
+
+// Setup exchange untuk blog events
+func SetupBlogExchange(rmq *RabbitMQ) error {
+	ch, err := rmq.GetChannel()
+	if err != nil {
+		return err
+	}
+
+	err = ch.ExchangeDeclare(
+		"blog.events", // name
+		"topic",       // type
+		true,          // durable
+		false,         // auto-deleted
+		false,         // internal
+		false,         // no-wait
+		nil,           // arguments
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Exchange 'blog.events' created")
+	return nil
+}
+
+// Setup queue dengan DLQ dan priority
+func SetupBlogNotificationQueue(rmq *RabbitMQ) error {
+	ch, err := rmq.GetChannel()
+	if err != nil {
+		return err
+	}
+
+	// Create Dead Letter Exchange
+	err = ch.ExchangeDeclare(
+		"blog.notifications.dlx", // Dead Letter Exchange
+		"direct",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Create Dead Letter Queue
+	_, err = ch.QueueDeclare(
+		"blog.notifications.failed", // DLQ name
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Bind DLQ to DLX
+	err = ch.QueueBind(
+		"blog.notifications.failed",
+		"failed",
+		"blog.notifications.dlx",
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Create Main Queue with DLQ configuration
+	args := make(map[string]interface{})
+	args["x-dead-letter-exchange"] = "blog.notifications.dlx"
+	args["x-dead-letter-routing-key"] = "failed"
+	args["x-message-ttl"] = int32(3600000) // 1 hour TTL
+	args["x-max-priority"] = int32(10)     // Priority 1-10
+
+	_, err = ch.QueueDeclare(
+		"blog.follower.notifications", // Main queue
+		true,
+		false,
+		false,
+		false,
+		args, // DLQ + TTL + Priority config
+	)
+	if err != nil {
+		return err
+	}
+
+	// 5. Bind main queue to exchange
+	err = ch.QueueBind(
+		"blog.follower.notifications",
+		"blog.published",
+		"blog.events",
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Println("Blog notification queue created with DLQ, TTL, and Priority")
 	return nil
 }
