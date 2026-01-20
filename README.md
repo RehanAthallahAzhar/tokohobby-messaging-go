@@ -1,71 +1,77 @@
-# Messaging Library
+# TokoHobby Messaging Library
 
-Shared RabbitMQ library for TokoHobby microservices.
+Lightweight, specialized messaging implementations for TokoHobby microservices.
 
-## Features
+## Structure
 
-- ✅ Publisher/Consumer patterns
-- ✅ Topic & Direct exchanges
-- ✅ Auto-reconnection
-- ✅ Error handling & retries
-- ✅ Worker pools
-- ✅ Exchange & Queue setup utilities
+```
+messaging/
+├── internal/
+│   └── kafka/
+│       └── producer.go     # ActivityProducer for user activity tracking
+│
+├── rabbitmq/               # RabbitMQ utilities (existing)
+│   ├── rabbitmq.go
+│   ├── publisher.go
+│   ├── consumer.go
+│   └── setup.go
+│
+├── go.mod
+└── README.md
+```
 
 ## Usage
 
-### Publisher
+### Kafka Activity Producer
 
 ```go
-import messaging "github.com/RehanAthallahAzhar/tokohobby-messaging-go"
+import "github.com/RehanAthallahAzhar/tokohobby-messaging-go/internal/kafka"
 
-rmq := messaging.NewRabbitMQ(config)
-publisher := messaging.NewPublisher(rmq)
+// Create producer
+producer := kafka.NewActivityProducer([]string{"localhost:9092"})
+defer producer.Close()
 
-err := publisher.Publish(ctx, messaging.PublishOptions{
-    Exchange:   "order.events",
-    RoutingKey: "order.created",
-}, orderEvent)
+// Publish user activity  
+producer.PublishActivity(ctx, &kafka.UserActivityEvent{
+    EventType: "LOGIN",
+    UserID:    &userID,
+    SessionID: sessionID,
+    Metadata: map[string]interface{}{
+        "ip_address": "192.168.1.1",
+        "user_agent": "Mozilla/5.0...",
+    },
+})
 ```
 
-### Consumer
+### Event Types
 
-```go
-consumer := messaging.NewConsumer(rmq, options, handlerFunc)
-consumer.DeclareQueue(true, false)
-consumer.BindQueue("order.events", "order.#")
-consumer.Start(ctx)
-```
+- `LOGIN` - User logged in
+- `LOGOUT` - User logged out
+- `PRODUCT_VIEW` - User viewed product
+- `BLOG_READ` - User read blog post
+- `CART_ADD` - Added to cart
+- `SEARCH` - Search query
 
-## Exchange Setup
+## Design Philosophy
 
-```go
-// Order events (Topic)
-messaging.SetupOrderExchange(rmq)
+**Simple & Focused**
 
-// User events (Direct)
-messaging.SetupUserExchange(rmq)
+- No over-abstraction
+- Single responsibility packages
+- Minimal dependencies
+- Direct, idiomatic Go
 
-// Product events (Topic)
-messaging.SetupProductExchange(rmq)
-```
+### Why `internal/kafka`?
 
-## Configuration
+- **Encapsulation**: Implementation is private to this library
+- **Clarity**: Services know they're using Kafka (intentional coupling for this use case)
+- **No import cycles**: Self-contained, no circular dependencies
 
-```go
-config := &RabbitMQConfig{
-    URL:            "amqp://admin:admin123@localhost:5672/tokohobby",
-    MaxRetries:     5,
-    RetryDelay:     5 * time.Second,
-    PrefetchCount:  10,
-    ReconnectDelay: 5 * time.Second,
-}
-```
+## RabbitMQ
 
-## Local Development
+RabbitMQ utilities are in the `rabbitmq/` package for command/event messaging patterns.
 
-This library is used as a local module:
+---
 
-```go
-// go.mod
-replace github.com/RehanAthallahAzhar/tokohobby-messaging-go => ../messaging
-```
+**Status:** ✅ Production-Ready  
+**Version:** 2.0 - Simplified

@@ -1,3 +1,4 @@
+// Package kafka provides Kafka implementation for user activity tracking
 package kafka
 
 import (
@@ -6,32 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/segmentio/kafka-go"
-	log "github.com/sirupsen/logrus"
+	kafkago "github.com/segmentio/kafka-go"
 )
 
+// ActivityProducer is a specialized producer for user activity events
 type ActivityProducer struct {
-	writer *kafka.Writer
+	writer *kafkago.Writer
 }
 
-func NewActivityProducer(brokers []string) *ActivityProducer {
-	writer := &kafka.Writer{
-		Addr:         kafka.TCP(brokers...),
-		Topic:        "user-activity",
-		Balancer:     &kafka.Hash{},
-		BatchSize:    100,
-		BatchTimeout: 10 * time.Millisecond,
-		Async:        true, // Non-blocking writes
-	}
-
-	log.WithFields(log.Fields{
-		"brokers": brokers,
-		"topic":   "user-activity",
-	}).Info("Kafka activity producer initialized")
-
-	return &ActivityProducer{writer: writer}
-}
-
+// UserActivityEvent represents a user activity event
 type UserActivityEvent struct {
 	EventID   string                 `json:"event_id"`
 	EventType string                 `json:"event_type"`
@@ -41,8 +25,22 @@ type UserActivityEvent struct {
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// NewActivityProducer creates a specialized producer for user activity
+func NewActivityProducer(brokers []string) *ActivityProducer {
+	writer := &kafkago.Writer{
+		Addr:         kafkago.TCP(brokers...),
+		Topic:        "user-activity",
+		Balancer:     &kafkago.Hash{},
+		BatchSize:    100,
+		BatchTimeout: 10 * time.Millisecond,
+		Async:        true,
+	}
+
+	return &ActivityProducer{writer: writer}
+}
+
 func (p *ActivityProducer) PublishActivity(ctx context.Context, event *UserActivityEvent) error {
-	// Generate event ID if not provided
+	// Auto-generate event ID if not provided
 	if event.EventID == "" {
 		event.EventID = uuid.New().String()
 	}
@@ -54,27 +52,16 @@ func (p *ActivityProducer) PublishActivity(ctx context.Context, event *UserActiv
 
 	value, err := json.Marshal(event)
 	if err != nil {
-		log.WithError(err).Error("Failed to marshal activity event")
 		return err
 	}
 
-	msg := kafka.Message{
-		Key:   []byte(event.SessionID), // Partition by session
+	msg := kafkago.Message{
+		Key:   []byte(event.SessionID),
 		Value: value,
+		Time:  event.Timestamp,
 	}
 
-	// Async write - errors are logged but don't block
-	if err := p.writer.WriteMessages(ctx, msg); err != nil {
-		log.WithError(err).WithField("event_type", event.EventType).Error("Failed to publish activity")
-		return err
-	}
-
-	log.WithFields(log.Fields{
-		"event_type": event.EventType,
-		"user_id":    event.UserID,
-	}).Debug("Published activity event")
-
-	return nil
+	return p.writer.WriteMessages(ctx, msg)
 }
 
 func (p *ActivityProducer) Close() error {
