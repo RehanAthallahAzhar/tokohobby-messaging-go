@@ -12,7 +12,7 @@ type RabbitMQConfig struct {
 
 func DefaultConfig() *RabbitMQConfig {
 	return &RabbitMQConfig{
-		URL:            "amqp://admin:admin123@localhost:5672/tokohobby",
+		URL:            "amqp://user:user123@localhost:5672/tokohobby",
 		MaxRetries:     3,
 		RetryDelay:     2 * time.Second,
 		PrefetchCount:  10,

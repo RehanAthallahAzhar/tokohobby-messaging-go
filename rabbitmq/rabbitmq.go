@@ -11,12 +11,12 @@ import (
 
 type RabbitMQ struct {
 	config    *RabbitMQConfig
-	conn      *amqp.Connection
-	channel   *amqp.Channel
-	mu        sync.RWMutex // for thread-safe operations from multiple goroutines (race condition)
-	closed    bool
-	closeChan chan struct{}
-	reconnect chan struct{}
+	conn      *amqp.Connection // Koneksi TCP ke RabbitMQ
+	channel   *amqp.Channel    // Channel untuk komunikasi dengan RabbitMQ
+	mu        sync.RWMutex     // for thread-safe operations from multiple goroutines (race condition)
+	closed    bool             // flag to indicate if connection is closed
+	closeChan chan struct{}    // channel to signal connection close
+	reconnect chan struct{}    // channel to signal reconnect
 }
 
 func NewRabbitMQ(config *RabbitMQConfig) (*RabbitMQ, error) {

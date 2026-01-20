@@ -13,12 +13,12 @@ func SetupUserExchange(rmq *RabbitMQ) error {
 	// Declare exchange
 	err = ch.ExchangeDeclare(
 		"user.events", // name
-		"direct",      // type
-		true,          // durable
-		false,         // auto-deleted
-		false,         // internal
-		false,         // no-wait
-		nil,           // arguments
+		"direct",      // type : Tipe routing (direct, topic, fanout, headers)
+		true,          // durable : Ketahanan data (true = exchange akan tetap ada meskipun rabbitmq restart)
+		false,         // auto-deleted : Antrian akan dihapus jika tidak ada yang menggunakan
+		false,         // internal : Exchange tidak bisa menerima pesan langsung
+		false,         // no-wait : Exchange akan dibuat tanpa menunggu konfirmasi
+		nil,           // arguments : Argumen tambahan
 	)
 	if err != nil {
 		return err
